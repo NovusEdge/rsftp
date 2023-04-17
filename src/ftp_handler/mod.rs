@@ -1,2 +1,2 @@
-mod client;
-mod prompt;
+pub mod client;
+pub mod commands;
