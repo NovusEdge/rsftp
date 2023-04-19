@@ -44,11 +44,7 @@ fn input_handler<T: IsFtpStream>(command: &str, fs: &mut T, cache: &mut String) 
         "cd" | "cwd" => {
             if cmd.len() < 2 {
                 println!("{}", Color::Red.paint("[-] Remote directory not specified"));
-                println!(
-                    "{}: {}",
-                    Color::Yellow.dimmed().bold().paint("USAGE for cd|cwd"),
-                    Color::Yellow.dimmed().paint("cd|cwd REMOTE_DIR")
-                );
+                commands::help("cd");
                 return;
             }
             let remote_dir = cmd[1];
@@ -60,11 +56,7 @@ fn input_handler<T: IsFtpStream>(command: &str, fs: &mut T, cache: &mut String) 
         "mkdir" => {
             if cmd.len() < 2 {
                 println!("{}", Color::Red.paint("[-] Target directory not specified"));
-                println!(
-                    "{}: {}",
-                    Color::Yellow.dimmed().bold().paint("USAGE for mkdir"),
-                    Color::Yellow.dimmed().paint("mkdir REMOTE_DIR")
-                );
+                commands::help("mkdir");
                 return;
             }
 
@@ -83,15 +75,9 @@ fn input_handler<T: IsFtpStream>(command: &str, fs: &mut T, cache: &mut String) 
             if cmd.len() < 3 {
                 println!(
                     "{}",
-                    Color::Red.paint("[-] Remote/LOCAL_FILE not specified properly")
+                    Color::Red.paint("[-] Remote/local file not specified properly")
                 );
-                println!(
-                    "{}: {}",
-                    Color::Yellow.dimmed().bold().paint("USAGE for append"),
-                    Color::Yellow
-                        .dimmed()
-                        .paint("append LOCAL_FILE REMOTE_FILE")
-                );
+                commands::help("append");
                 return;
             }
 
@@ -109,11 +95,7 @@ fn input_handler<T: IsFtpStream>(command: &str, fs: &mut T, cache: &mut String) 
         "delete" | "rm" => {
             if cmd.len() < 2 {
                 println!("{}", Color::Red.paint("[-] Target file(s) not specified"));
-                println!(
-                    "{}: {}",
-                    Color::Yellow.dimmed().bold().paint("USAGE for delete|rm"),
-                    Color::Yellow.dimmed().paint("delete|rm REMOTE_FILES...")
-                );
+                commands::help("delete");
                 return;
             }
             if cmd.len() == 2 {
@@ -128,11 +110,7 @@ fn input_handler<T: IsFtpStream>(command: &str, fs: &mut T, cache: &mut String) 
         "rmdir" => {
             if cmd.len() < 2 {
                 println!("{}", Color::Red.paint("[-] Target directory not specified"));
-                println!(
-                    "{}: {}",
-                    Color::Yellow.dimmed().bold().paint("USAGE for rmdir"),
-                    Color::Yellow.dimmed().paint("rmdir REMOTE_DIR")
-                );
+                commands::help("rmdir");
                 return;
             }
             commands::rmdir(fs, cmd[1]);
@@ -140,11 +118,7 @@ fn input_handler<T: IsFtpStream>(command: &str, fs: &mut T, cache: &mut String) 
         "size" => {
             if cmd.len() < 2 {
                 println!("{}", Color::Red.paint("[-] Target file not specified"));
-                println!(
-                    "{}: {}",
-                    Color::Yellow.dimmed().bold().paint("USAGE for size"),
-                    Color::Yellow.dimmed().paint("size REMOTE_FILES...")
-                );
+                commands::help("size");
                 return;
             }
             if cmd.len() == 2 {
@@ -156,18 +130,10 @@ fn input_handler<T: IsFtpStream>(command: &str, fs: &mut T, cache: &mut String) 
                 commands::size(fs, i);
             }
         }
-        "chmod" => {
-            todo!()
-            // commands::chmod(fs, ...);
-        }
         "get" => {
             if cmd.len() < 2 {
                 println!("{}", Color::Red.paint("[-] Target file not specified"));
-                println!(
-                    "{}: {}",
-                    Color::Yellow.dimmed().bold().paint("USAGE for get"),
-                    Color::Yellow.dimmed().paint("get REMOTE_FILE [LOCAL_FILE]")
-                );
+                commands::help("get");
                 return;
             }
             if cmd.len() == 2 {
@@ -196,11 +162,7 @@ fn input_handler<T: IsFtpStream>(command: &str, fs: &mut T, cache: &mut String) 
         "put" => {
             if cmd.len() < 2 {
                 println!("{}", Color::Red.paint("[-] Target file not specified"));
-                println!(
-                    "{}: {}",
-                    Color::Yellow.dimmed().bold().paint("USAGE for put"),
-                    Color::Yellow.dimmed().paint("put LOCAL_FILE [REMOTE_FILE]")
-                );
+                commands::help("put");
                 return;
             }
             if cmd.len() == 2 {
@@ -230,18 +192,16 @@ fn input_handler<T: IsFtpStream>(command: &str, fs: &mut T, cache: &mut String) 
         "user" => {
             if cmd.len() < 2 {
                 println!("{}", Color::Red.paint("[-] User not specified"));
-                println!(
-                    "{}: {}",
-                    Color::Yellow.dimmed().bold().paint("USAGE for user"),
-                    Color::Yellow.dimmed().paint("user USER")
-                );
+                commands::help("user");
                 return;
             }
             let mut buffer = String::new();
+            stdout().flush();
             print!(
                 "{}",
                 Color::White.bold().paint("Enter passwords for user: ")
             );
+            std::io::stdout().flush();
             std::io::stdin().read_line(&mut buffer).unwrap();
             commands::user(fs, cmd[1], buffer.as_str(), cache);
         }
@@ -253,7 +213,11 @@ fn input_handler<T: IsFtpStream>(command: &str, fs: &mut T, cache: &mut String) 
             std::process::exit(0);
         }
         "help" => {
-            commands::help();
+            if cmd.len() < 2 {
+                commands::print_available_commands();    
+            } else {
+                commands::help(cmd[1]);
+            }
         }
         _ => {
             println!("{}", Color::Red.paint("[-] Invalid Command"));
