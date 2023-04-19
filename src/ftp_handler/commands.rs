@@ -1,9 +1,10 @@
+use crate::ftp_handler::client::IsFtpStream;
 use ansi_term::Color;
 use std::fs::File;
 use std::io::prelude::*;
-use suppaftp::{types::FileType, FtpError, FtpStream, NativeTlsFtpStream};
+use suppaftp::FtpError;
 
-pub fn pwd(fs: &mut FtpStream) {
+pub fn pwd<T: IsFtpStream>(fs: &mut T) {
     match fs.pwd() {
         Ok(s) => {
             println!(
@@ -32,7 +33,7 @@ pub fn lpwd() {
     };
 }
 
-pub fn cwd(fs: &mut FtpStream, remote_dir: &str) {
+pub fn cwd<T: IsFtpStream>(fs: &mut T, remote_dir: &str) {
     match fs.cwd(remote_dir) {
         Ok(()) => {
             println!(
@@ -47,11 +48,16 @@ pub fn cwd(fs: &mut FtpStream, remote_dir: &str) {
     };
 }
 
-pub fn cdup(fs: &mut FtpStream) {
-    cwd(fs, "..");
+pub fn cdup<T: IsFtpStream>(fs: &mut T) {
+    match fs.cdup() {
+        Ok(()) => {}
+        Err(e) => {
+            print_error(e);
+        }
+    };
 }
 
-pub fn ls(fs: &mut FtpStream, remote_dir: &str) {
+pub fn ls<T: IsFtpStream>(fs: &mut T, remote_dir: &str) {
     match fs.list(Some(remote_dir)) {
         Ok(s) => {
             println!(
@@ -68,7 +74,7 @@ pub fn ls(fs: &mut FtpStream, remote_dir: &str) {
     };
 }
 
-pub fn mkdir(fs: &mut FtpStream, new_dir: &str) {
+pub fn mkdir<T: IsFtpStream>(fs: &mut T, new_dir: &str) {
     match fs.mkdir(new_dir) {
         Ok(()) => {
             println!("{}", Color::Green.paint("[+]: Success!"));
@@ -79,7 +85,7 @@ pub fn mkdir(fs: &mut FtpStream, new_dir: &str) {
     };
 }
 
-pub fn append(fs: &mut FtpStream, local_file: &mut File, remote_file: &str) {
+pub fn append<T: IsFtpStream>(fs: &mut T, local_file: &mut File, remote_file: &str) {
     match fs.append_file(remote_file, local_file) {
         Ok(s) => {
             println!("{}", Color::White.paint(format!("{}", s)))
@@ -90,7 +96,7 @@ pub fn append(fs: &mut FtpStream, local_file: &mut File, remote_file: &str) {
     };
 }
 
-pub fn rm(fs: &mut FtpStream, remote_file: &str) {
+pub fn rm<T: IsFtpStream>(fs: &mut T, remote_file: &str) {
     match fs.rm(remote_file) {
         Ok(()) => {
             println!("{}", Color::Green.paint("[+] Success"));
@@ -101,7 +107,7 @@ pub fn rm(fs: &mut FtpStream, remote_file: &str) {
     };
 }
 
-pub fn rmdir(fs: &mut FtpStream, remote_dir: &str) {
+pub fn rmdir<T: IsFtpStream>(fs: &mut T, remote_dir: &str) {
     match fs.rmdir(remote_dir) {
         Ok(()) => {
             println!("{}", Color::Green.paint("[+] Success"));
@@ -112,7 +118,7 @@ pub fn rmdir(fs: &mut FtpStream, remote_dir: &str) {
     };
 }
 
-pub fn size(fs: &mut FtpStream, remote_file: &str) {
+pub fn size<T: IsFtpStream>(fs: &mut T, remote_file: &str) {
     match fs.size(remote_file) {
         Ok(s) => {
             println!(
@@ -130,11 +136,11 @@ pub fn size(fs: &mut FtpStream, remote_file: &str) {
     };
 }
 
-pub fn chmod(fs: &mut FtpStream, remote_file: &str) {
+pub fn chmod<T: IsFtpStream>(fs: &mut T, remote_file: &str) {
     unimplemented!()
 }
 
-pub fn put(fs: &mut FtpStream, local_file: &mut File, remote_file: &str) {
+pub fn put<T: IsFtpStream>(fs: &mut T, local_file: &mut File, remote_file: &str) {
     match fs.put_file(remote_file, local_file) {
         Ok(n) => {
             println!("Wrote {} bytes", n);
@@ -145,7 +151,7 @@ pub fn put(fs: &mut FtpStream, local_file: &mut File, remote_file: &str) {
     };
 }
 
-pub fn get(fs: &mut FtpStream, remote_file: &str, local_file: &mut File) {
+pub fn get<T: IsFtpStream>(fs: &mut T, remote_file: &str, local_file: &mut File) {
     match fs.retr(remote_file, |stream| {
         let mut buf = Vec::new();
         stream
@@ -167,16 +173,29 @@ pub fn help() {
     todo!()
 }
 
-pub fn user(fs: &mut FtpStream, user: &str, pass: &str) {
+pub fn user<T: IsFtpStream>(fs: &mut T, user: &str, pass: &str, cache: &mut String) {
     match fs.login(user, pass) {
-        Ok(()) => {}
-        Err(e) => { print_error(e); }
-    }
+        Ok(()) => {
+            *cache = user.to_string();
+        }
+        Err(e) => {
+            print_error(e);
+        }
+    };
 }
 
-pub fn quit(fs: &mut FtpStream) {
+pub fn quit<T: IsFtpStream>(fs: &mut T) {
     match fs.quit() {
         Ok(_) => {}
+        Err(e) => {
+            print_error(e);
+        }
+    };
+}
+
+pub fn noop<T: IsFtpStream>(fs: &mut T) {
+    match fs.noop() {
+        Ok(()) => {  }
         Err(e) => {
             print_error(e);
         }
@@ -185,189 +204,4 @@ pub fn quit(fs: &mut FtpStream) {
 
 fn print_error(e: FtpError) {
     println!("{}", Color::Red.paint(format!("[-]: {}", e)));
-}
-
-// Functions for TLS stream:
-pub fn pwd_tls(fs: &mut NativeTlsFtpStream) {
-    match fs.pwd() {
-        Ok(s) => {
-            println!(
-                "{}: {}",
-                Color::White.dimmed().paint("Remote directory"),
-                Color::Green.bold().dimmed().paint(s)
-            );
-        }
-        Err(e) => {
-            print_error(e);
-        }
-    };
-}
-
-pub fn lpwd_tls() {
-    match std::env::current_dir() {
-        Ok(s) => {
-            println!(
-                "Local Directory: {}",
-                Color::Green.dimmed().paint(s.display().to_string())
-            );
-        }
-        Err(e) => {
-            println!("{}", Color::Red.paint(format!("[-]: {}", e)));
-        }
-    };
-}
-
-pub fn cwd_tls(fs: &mut NativeTlsFtpStream, remote_dir: &str) {
-    match fs.cwd(remote_dir) {
-        Ok(()) => {
-            println!(
-                "{}: {}",
-                Color::White.dimmed().paint("Changed to"),
-                Color::Green.bold().dimmed().paint(remote_dir)
-            );
-        }
-        Err(e) => {
-            print_error(e);
-        }
-    };
-}
-
-pub fn cdup_tls(fs: &mut NativeTlsFtpStream) {
-    cwd_tls(fs, "..");
-}
-
-pub fn ls_tls(fs: &mut NativeTlsFtpStream, remote_dir: &str) {
-    match fs.list(Some(remote_dir)) {
-        Ok(s) => {
-            println!(
-                "Listing directory: {}",
-                Color::Blue.bold().paint(remote_dir)
-            );
-            for i in s {
-                println!("{}", i);
-            }
-        }
-        Err(e) => {
-            print_error(e);
-        }
-    };
-}
-
-pub fn mkdir_tls(fs: &mut NativeTlsFtpStream, new_dir: &str) {
-    match fs.mkdir(new_dir) {
-        Ok(()) => {
-            println!("{}", Color::Green.paint("[+]: Success!"));
-        }
-        Err(e) => {
-            print_error(e);
-        }
-    };
-}
-
-pub fn append_tls(fs: &mut NativeTlsFtpStream, local_file: &mut File, remote_file: &str) {
-    match fs.append_file(remote_file, local_file) {
-        Ok(s) => {
-            println!("{}", Color::White.paint(format!("{}", s)))
-        }
-        Err(e) => {
-            print_error(e);
-        }
-    };
-}
-
-pub fn rm_tls(fs: &mut NativeTlsFtpStream, remote_file: &str) {
-    match fs.rm(remote_file) {
-        Ok(()) => {
-            println!("{}", Color::Green.paint("[+] Success"));
-        }
-        Err(e) => {
-            print_error(e);
-        }
-    };
-}
-
-pub fn rmdir_tls(fs: &mut NativeTlsFtpStream, remote_dir: &str) {
-    match fs.rmdir(remote_dir) {
-        Ok(()) => {
-            println!("{}", Color::Green.paint("[+] Success"));
-        }
-        Err(e) => {
-            print_error(e);
-        }
-    };
-}
-
-pub fn size_tls(fs: &mut NativeTlsFtpStream, remote_file: &str) {
-    match fs.size(remote_file) {
-        Ok(s) => {
-            println!(
-                "{}",
-                format!(
-                    "Size of {}: {}",
-                    Color::Yellow.dimmed().paint(remote_file),
-                    s
-                )
-            );
-        }
-        Err(e) => {
-            print_error(e);
-        }
-    };
-}
-
-pub fn chmod_tls(fs: &mut NativeTlsFtpStream, remote_file: &str) {
-    unimplemented!()
-}
-
-pub fn put_tls(fs: &mut NativeTlsFtpStream, local_file: &mut File, remote_file: &str) {
-    match fs.put_file(remote_file, local_file) {
-        Ok(n) => {
-            println!("Wrote {} bytes", n);
-        }
-        Err(e) => {
-            print_error(e);
-        }
-    };
-}
-
-pub fn get_tls(fs: &mut NativeTlsFtpStream, remote_file: &str, local_file: &mut File) {
-    match fs.retr(remote_file, |stream| {
-        let mut buf = Vec::new();
-        stream
-            .read_to_end(&mut buf)
-            .map_err(|e| FtpError::ConnectionError(e))?;
-        local_file
-            .write(String::from_utf8(buf).unwrap().as_bytes())
-            .map_err(|e| FtpError::ConnectionError(e))?;
-        Ok(())
-    }) {
-        Ok(_) => {}
-        Err(e) => {
-            print_error(e);
-        }
-    };
-}
-
-pub fn user_tls(fs: &mut NativeTlsFtpStream, user: &str, pass: &str) {
-    match fs.login(user, pass) {
-        Ok(()) => {}
-        Err(e) => { print_error(e); }
-    }
-}
-
-pub fn rename_tls(fs: &mut NativeTlsFtpStream, from: &str, to: &str) {
-    match fs.rename(from, to) {
-        Ok(()) => {  }
-        Err(e) => { print_error(e); }
-    }
-}
-
-
-pub fn quit_tls(fs: &mut NativeTlsFtpStream) {
-    match fs.quit() {
-        Ok(_) => {}
-        Err(e) => {
-            print_error(e);
-        }
-    };
 }
