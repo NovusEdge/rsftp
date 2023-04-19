@@ -1,6 +1,6 @@
 # rsftp
 
-A simple client written in rust.
+A simple FTP client written in rust.
 
 ## Installation
 
